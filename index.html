@@ -1,0 +1,569 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Payday">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Payday</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#07060b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=Silkscreen:wght@400;700&family=Chakra+Petch:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one 440px arcade-cabinet column. Big digital number + energy meter on top, missions below, + button docked at the bottom. Deliberately dark-only. */
+:root{
+  color-scheme:dark;
+  --bg:#07060b; --panel:#110f18; --panel2:#18151f; --line:#2a2536; --ink:#f2eefb; --muted:#8f87a3;
+  --lime:#b6ff3b; --orange:#ff8a1f; --purple:#a970ff; --red:#ff4d6d;
+  --digit:"VT323",ui-monospace,Menlo,monospace;
+  --pixel:"Silkscreen",ui-monospace,Menlo,monospace;
+  --body:"Chakra Petch",system-ui,-apple-system,sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 120px;
+  background-image:radial-gradient(120% 40% at 50% 0%,rgba(169,112,255,.13),transparent 70%),repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);
+  background-attachment:fixed}
+.wrap{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.num{font-variant-numeric:tabular-nums}
+.px{display:inline-block;vertical-align:middle;flex:none;shape-rendering:crispEdges}
+.label{font-family:var(--pixel);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h2{font-family:var(--pixel);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin:0;display:flex;align-items:center;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.muted{color:var(--muted)} .small{font-size:13px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+
+/* week nav */
+.weeknav{display:flex;align-items:center;gap:10px}
+.weeknav .lbl{text-align:center;flex:1;min-width:0}
+.weeknav .lbl b{font-family:var(--pixel);font-size:14px;letter-spacing:.06em;display:block;text-transform:uppercase}
+.iconbtn{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;color:var(--ink)}
+.iconbtn:disabled{opacity:.3}
+.banner{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:10px 12px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.lime{border-color:rgba(182,255,59,.35)} .banner.orange{border-color:rgba(255,138,31,.45)} .banner.red{border-color:rgba(255,77,109,.5);color:#ffd6de}
+
+/* hero */
+.hero{padding:18px 18px 16px;gap:10px;border-color:rgba(182,255,59,.25);background:linear-gradient(180deg,#14121c,var(--panel))}
+.big{white-space:nowrap;overflow:hidden;font-family:var(--digit);font-size:104px;line-height:.82;letter-spacing:.01em;color:var(--lime);text-shadow:0 0 18px rgba(182,255,59,.45),0 0 2px rgba(182,255,59,.9)}
+.big.warn{color:var(--orange);text-shadow:0 0 18px rgba(255,138,31,.45)}
+.big.neg{color:var(--red);text-shadow:0 0 18px rgba(255,77,109,.45)}
+.digits{font-family:var(--digit);font-size:22px;line-height:1}
+
+/* energy meter */
+.meter{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;height:16px}
+.meter.sm{height:12px;grid-template-columns:repeat(15,1fr)}
+.meter i{border-radius:2px;background:#1f1b29;transition:background .2s,box-shadow .2s}
+.meter i.on{background:var(--c,var(--lime));box-shadow:0 0 8px color-mix(in srgb,var(--c,var(--lime)) 60%,transparent)}
+.meter.lime{--c:var(--lime)} .meter.orange{--c:var(--orange)} .meter.red{--c:var(--red)} .meter.purple{--c:var(--purple)}
+@keyframes charge{from{opacity:0;transform:scaleY(.3)}to{opacity:1;transform:none}}
+.meter i.on{animation:charge .28s both}
+
+.tag{font-family:var(--pixel);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:6px;border:1px solid currentColor;white-space:nowrap}
+.tag.lime{color:var(--lime)} .tag.orange{color:var(--orange)} .tag.red{color:var(--red)} .tag.purple{color:var(--purple)} .tag.gray{color:var(--muted)}
+
+/* missions */
+.mission{display:flex;align-items:center;gap:12px;padding:12px;width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;text-align:left;transition:border-color .2s,background .2s}
+.missions{display:flex;flex-direction:column;gap:8px}
+.mbox{flex:none;width:28px;height:28px;border:2px solid var(--muted);display:grid;place-items:center;color:transparent;border-radius:4px}
+.mission.on{border-color:rgba(182,255,59,.45);background:rgba(182,255,59,.06)}
+.mission.on .mbox{background:var(--lime);border-color:var(--lime);color:#07060b;box-shadow:0 0 10px rgba(182,255,59,.5)}
+.mission.on .mt{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--lime)}
+.mission .mw{flex:1;min-width:0}
+.mission .mt{font-weight:600}
+.mission small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.mission .ma{font-family:var(--digit);font-size:24px;line-height:1}
+@keyframes zap{0%{box-shadow:0 0 0 0 rgba(182,255,59,.7)}100%{box-shadow:0 0 0 14px rgba(182,255,59,0)}}
+.mission.zap{animation:zap .5s ease-out}
+
+/* lists */
+.list{display:flex;flex-direction:column}
+.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item .w{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .d{font-family:var(--pixel);font-size:10px;color:var(--muted);width:30px;text-transform:uppercase}
+.item .x{background:none;border:0;color:var(--muted);padding:6px;display:grid;place-items:center}
+.item .v{font-family:var(--digit);font-size:22px;line-height:1}
+
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:10px 14px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+.btn.primary{background:var(--lime);border-color:var(--lime);color:#07060b;box-shadow:0 0 16px rgba(182,255,59,.3)}
+.btn.sm{padding:7px 10px;font-size:13px}
+.btn:active{transform:translateY(1px)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.stat{font-family:var(--digit);font-size:52px;line-height:.9}
+details>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details>summary::-webkit-details-marker{display:none}
+details>summary .chev{transition:transform .2s;color:var(--muted)} details[open]>summary .chev{transform:rotate(90deg)}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.kv:first-child{border-top:0}
+.kv b{font-family:var(--digit);font-size:20px;font-weight:400;line-height:1}
+label.f{display:flex;flex-direction:column;gap:5px;font-family:var(--pixel);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+input{font:inherit;font-family:var(--body);font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* level */
+.level{display:flex;align-items:center;gap:14px}
+.lvl{flex:none;width:74px;height:74px;border:2px solid var(--purple);border-radius:12px;display:grid;place-items:center;text-align:center;box-shadow:0 0 18px rgba(169,112,255,.3),inset 0 0 14px rgba(169,112,255,.15)}
+.lvl span{font-family:var(--pixel);font-size:9px;color:var(--purple);display:block;letter-spacing:.1em}
+.lvl b{font-family:var(--digit);font-size:44px;line-height:.8;color:var(--ink);font-weight:400}
+
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:5;
+  background:var(--lime);color:#07060b;border:0;border-radius:14px;padding:16px 24px;font-family:var(--pixel);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;
+  display:flex;align-items:center;gap:10px;box-shadow:0 0 0 2px #07060b,0 0 26px rgba(182,255,59,.45)}
+.fab:active{transform:translateX(-50%) translateY(2px)}
+.sheetbg{position:fixed;inset:0;background:rgba(4,3,8,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:20;display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
+.sheet{background:var(--panel);border:1px solid var(--line);border-bottom:0;width:100%;max-width:480px;border-radius:20px 20px 0 0;
+  padding:18px max(18px,env(safe-area-inset-left,0px)) calc(22px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;max-height:92%;overflow:auto;animation:up .22s cubic-bezier(.2,.9,.3,1)}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+@keyframes fade{from{opacity:0}}
+.amtin{font-family:var(--digit);font-size:64px;text-align:center;border:0;background:transparent;padding:0;color:var(--lime);text-shadow:0 0 14px rgba(182,255,59,.4)}
+.amtin::placeholder{color:#3a3448;text-shadow:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:9px 13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.chip.on{border-color:var(--lime);color:var(--lime);box-shadow:inset 0 0 0 1px var(--lime)}
+.chip.on.gas{border-color:var(--orange);color:var(--orange);box-shadow:inset 0 0 0 1px var(--orange)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));background:#0d0b13;border:1px solid var(--lime);color:var(--lime);
+  padding:10px 16px;border-radius:10px;z-index:30;font-family:var(--pixel);font-size:12px;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 0 20px rgba(182,255,59,.3);animation:drop .25s;white-space:nowrap}
+.toast.purple{border-color:var(--purple);color:var(--purple);box-shadow:0 0 24px rgba(169,112,255,.45)}
+@keyframes drop{from{transform:translate(-50%,-14px);opacity:0}}
+.sync{font-family:var(--pixel);font-size:10px;letter-spacing:.06em;color:var(--muted);text-align:center;text-transform:uppercase}
+.haptic{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head><body>
+
+<div class="wrap" id="app"></div>
+<button class="fab" id="fab" type="button"></button>
+<div id="sheetRoot"></div>
+<label class="haptic" id="hapticLbl" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
+
+<script>
+(()=>{
+/* ---------- pixel icons (8x8) ---------- */
+const ICONS={
+  coin:["..####..",".#....#.","#..##..#","#.#....#","#..##..#","#....#.#","#.###..#",".######."],
+  fuel:["####....","#..#.#..","#..#..#.","####..#.","####..#.","####.##.","####....","#####..."],
+  receipt:[".######.",".#....#.",".#.##.#.",".#....#.",".#.##.#.",".#....#.",".#.#.##.",".##.#.#."],
+  cal:[".#....#.","########","#......#","#.##.#.#","#......#","#.#.##.#","#......#","########"],
+  car:["........","..####..",".#....#.","########","#.####.#","########",".##..##.","........"],
+  lock:["..####..",".#....#.",".#....#.","########","###..###","###..###","########","........"],
+  gear:["...##...",".#.##.#.","..####..","###..###","###..###","..####..",".#.##.#.","...##..."],
+  clock:["########",".#....#.","..#..#..","...##...","...##...","..#..#..",".#....#.","########"],
+  plus:["...##...","...##...","...##...","########","########","...##...","...##...","...##..."],
+  check:["........",".......#","......##","#....##.","##..##..",".####...","..##....","........"],
+  cash:["........","########","#..##..#","#.#..#.#","#.#..#.#","#..##..#","########","........"],
+  bolt:["....###.","...###..","..###...",".######.","...###..","..###...",".##.....","#......."],
+  star:["...##...","...##...","########",".######.","..####..",".##..##.","##....##","........"],
+  left:["........","....##..","...##...","..##....","..##....","...##...","....##..","........"],
+  right:["........","..##....","...##...","....##..","....##..","...##...","..##....","........"],
+  x:["........",".##..##.","..####..","...##...","..####..",".##..##.","........","........"]
+};
+const px=(n,s=16)=>{const g=ICONS[n];let r="";g.forEach((row,y)=>[...row].forEach((c,x)=>{if(c==="#")r+=`<rect x="${x}" y="${y}" width="1" height="1"/>`}));return `<svg class="px" width="${s}" height="${s}" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true">${r}</svg>`};
+
+const CATS=["Gas","Food","Eating out","Shopping","Fun","Other"];
+const LEVELS=[0,250,500,1000,2000,3500,5000,7500,10000,15000,20000,30000,50000];
+const DEFAULT={
+  v:1,
+  settings:{pay:1000,bil:250,save:200,cashapp:30,gas:30,carIns:150,carInsWeekly:38,auto:12,catchup:4,catchupUntil:"2027-05-04",bilStart:6750,savingsStart:0,startDate:"2026-11-01"},
+  weeks:{}, spends:[], monthly:{}, closed:{}, bilLump:[]
+};
+let S=JSON.parse(JSON.stringify(DEFAULT));
+let viewWeek=null, db=null, docRef=null, saveTimer=null, syncMsg="Saved on this phone", lastHero=null, zapKey=null;
+
+/* ---------- dates & formatting ---------- */
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return iso(d)};
+const sunday=s=>{const d=parse(s);d.setDate(d.getDate()-d.getDay());return iso(d)};
+const today=()=>iso(new Date());
+const nice=(s,opt={month:"short",day:"numeric"})=>parse(s).toLocaleDateString("en-US",opt);
+const daysBetween=(a,b)=>Math.round((parse(b)-parse(a))/864e5);
+const r2=n=>Math.round(n*100)/100;
+const money=n=>{const neg=n<0;n=Math.abs(r2(n));const s=Number.isInteger(n)?n.toLocaleString("en-US"):n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});return (neg?"-$":"$")+s};
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const meter=(pct,cls="lime",n=20,sm=false)=>{const on=Math.round(Math.max(0,Math.min(1,pct))*n);let h="";for(let i=0;i<n;i++)h+=`<i class="${i<on?"on":""}" style="animation-delay:${i*14}ms"></i>`;return `<div class="meter ${sm?"sm":""} ${cls}" role="meter" aria-valuenow="${Math.round(pct*100)}" aria-valuemin="0" aria-valuemax="100">${h}</div>`};
+
+/* ---------- haptics: vibrate where supported, iOS 18 switch tap otherwise ---------- */
+function haptic(){try{if(navigator.vibrate&&navigator.vibrate(12))return}catch(e){}try{document.getElementById("hapticLbl").click()}catch(e){}}
+
+/* ---------- storage ---------- */
+function loadLocal(){try{const r=localStorage.getItem("payday-state");if(r)return JSON.parse(r)}catch(e){}return null}
+function saveLocal(){try{localStorage.setItem("payday-state",JSON.stringify(S))}catch(e){}}
+function merge(x){const o=JSON.parse(JSON.stringify(DEFAULT));if(!x)return o;Object.assign(o,x);o.settings=Object.assign({},DEFAULT.settings,x.settings||{});o.bilLump=x.bilLump||[];return o}
+function persist(){
+  S.updated=Date.now(); saveLocal();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    if(!docRef)return;
+    try{await docRef.set({state:JSON.stringify(S)});syncMsg="Saved to your account"}catch(e){syncMsg="Couldn't reach your account. Saved on this phone."}
+    const el=document.getElementById("sync");if(el)el.textContent=syncMsg;
+  },500);
+}
+async function connect(){
+  try{
+    if(!window.claude?.use)return;
+    const timer=new Promise(r=>setTimeout(()=>r([null,null]),10000));
+    const [d,u]=await Promise.race([Promise.all([claude.use("db"),claude.use("user")]),timer]);
+    if(!d||!u)return;
+    const id=await u.id(); if(!id)return;
+    db=d; docRef=db.doc("data/users/"+id+"/budget");
+    const snap=await docRef.get();
+    const remote=snap.exists&&snap.data()?.state?JSON.parse(snap.data().state):null;
+    if(remote&&(!S.updated||remote.updated>=S.updated)){S=merge(remote);saveLocal()}
+    else if(S.updated){await docRef.set({state:JSON.stringify(S)})}
+    syncMsg="Saved to your account"; render();
+  }catch(e){syncMsg="Saved on this phone only"; render()}
+}
+
+/* ---------- money math ---------- */
+const currentWeek=()=>{const t=today(),s=S.settings.startDate;return t<s?s:sunday(t)};
+function W(wk){return S.weeks[wk]||{pay:S.settings.pay,extras:[],checks:{}}}
+function ensureW(wk){if(!S.weeks[wk])S.weeks[wk]={pay:S.settings.pay,extras:[],checks:{}};return S.weeks[wk]}
+function weeksUpTo(wk){const a=[];for(let w=S.settings.startDate;w<=wk;w=addDays(w,7))a.push(w);return a}
+const lumps=()=>S.bilLump||[];
+function bilPaidBefore(wk){let t=0;for(const w in S.weeks){if(w<wk&&S.weeks[w].checks?.bil)t+=S.weeks[w].bilPaid||0}const e=addDays(wk,6);lumps().forEach(l=>{if(l.date<=e)t+=l.amt});return t}
+function bilPaidTotal(){let t=0;for(const w in S.weeks){if(S.weeks[w].checks?.bil)t+=S.weeks[w].bilPaid||0}lumps().forEach(l=>t+=l.amt);return t}
+function calc(wk){
+  const st=S.settings, w=W(wk);
+  const first=wk===st.startDate;
+  const carIns=first?st.carIns:st.carInsWeekly;            // first payday pays the full $150 due Nov 1
+  const auto=st.auto+(wk<st.catchupUntil?st.catchup:0);     // extra $4/wk for Claude until May 4
+  const remaining=Math.max(0,st.bilStart-bilPaidBefore(wk));
+  const bilDue=w.checks?.bil?(w.bilPaid||0):Math.min(st.bil,remaining);
+  const saveDue=w.checks?.save?(w.savePaid||0):st.save+(st.bil-bilDue); // once BIL is paid off, that money goes to savings
+  const bank=st.gas+carIns+auto;
+  const base=w.pay-bilDue-saveDue-st.cashapp-bank;
+  const ex=w.extras||[];
+  const exSpend=ex.reduce((a,e)=>a+(e.amt-e.toSave),0), exSave=ex.reduce((a,e)=>a+e.toSave,0);
+  const prev=addDays(wk,-7);
+  const rollIn=S.closed[prev]?S.closed[prev].toNext:0;
+  const end=addDays(wk,6);
+  const sp=S.spends.filter(s=>s.date>=wk&&s.date<=end);
+  const gasSpent=sp.filter(s=>s.cat==="Gas").reduce((a,s)=>a+s.amt,0);
+  const otherSpent=sp.filter(s=>s.cat!=="Gas").reduce((a,s)=>a+s.amt,0);
+  const gasOver=Math.max(0,gasSpent-st.gas), gasUnder=Math.max(0,st.gas-gasSpent);
+  const lumpSpend=lumps().filter(l=>l.src==="spend"&&l.date>=wk&&l.date<=end).reduce((a,l)=>a+l.amt,0);
+  const budget=base+exSpend+rollIn;
+  const left=budget-otherSpent-gasOver-lumpSpend;
+  return {lumpSpend,first,carIns,auto,bilDue,saveDue,cash:bilDue+saveDue,bank,base,exSpend,exSave,rollIn,sp,gasSpent,otherSpent,gasOver,gasUnder,budget,left,endLeft:left+gasUnder,remaining};
+}
+function savingsTotal(){
+  let t=S.settings.savingsStart;
+  for(const w in S.weeks){const x=S.weeks[w];if(x.checks?.save)t+=x.savePaid||0;(x.extras||[]).forEach(e=>t+=e.toSave)}
+  for(const w in S.closed)t+=S.closed[w].toSave||0;
+  lumps().forEach(l=>{if(l.src==="savings")t-=l.amt});
+  return t;
+}
+const levelOf=v=>{let i=0;while(i+1<LEVELS.length&&v>=LEVELS[i+1])i++;return i};
+function autoClose(){
+  const cur=currentWeek(), prev=addDays(cur,-7); let changed=false;
+  for(const w of weeksUpTo(prev)){
+    if(S.closed[w])continue;
+    const c=calc(w);
+    if(c.endLeft<=0){S.closed[w]={toNext:r2(c.endLeft),toSave:0,auto:true};changed=true}
+    else if(w!==prev){S.closed[w]={toNext:0,toSave:r2(c.endLeft),auto:true};changed=true}
+  }
+  if(changed)persist();
+}
+
+/* ---------- render ---------- */
+function render(){
+  autoClose();
+  const cur=currentWeek(); if(!viewWeek)viewWeek=cur;
+  const wk=viewWeek, c=calc(wk), w=W(wk), st=S.settings;
+  const isCur=wk===cur, isPast=wk<cur, notStarted=today()<st.startDate;
+  const end=addDays(wk,6);
+  const D=s=>nice(s,{weekday:"short",month:"short",day:"numeric"});
+  let h="";
+
+  h+=`<div class="weeknav"><button class="iconbtn" id="prevW" type="button" aria-label="Previous week" ${wk<=st.startDate?"disabled":""}>${px("left",18)}</button>
+    <div class="lbl"><b>${isCur?"This week":"Week of "+nice(wk)}</b><span class="muted small">${D(wk)} to ${D(end)}</span></div>
+    <button class="iconbtn" id="nextW" type="button" aria-label="Next week" ${wk>=cur?"disabled":""}>${px("right",18)}</button></div>`;
+
+  if(notStarted&&isCur) h+=`<div class="banner lime">${px("bolt",14)}<span>Game starts <b>Sunday, ${nice(st.startDate,{month:"long",day:"numeric"})}</b>, your first payday. You're previewing that week.</span></div>`;
+  if(!isCur) h+=`<div class="banner orange"><span>You're looking at a past week.</span><button class="btn sm" id="goNow" type="button">Back to this week</button></div>`;
+
+  // leftover from last week
+  const prev=addDays(cur,-7);
+  if(isCur&&prev>=st.startDate&&!S.closed[prev]){
+    const amt=r2(calc(prev).endLeft);
+    h+=`<div class="card" style="border-color:rgba(169,112,255,.6)"><h2 style="color:var(--purple)">${px("star",14)} Bonus round</h2>
+      <div>You finished last week with <b class="digits" style="color:var(--lime)">${money(amt)}</b> left.</div>
+      <div class="muted small">Keep some for this week. The rest goes to savings.</div>
+      <label class="f" for="rollAmt">Keep for this week<input id="rollAmt" type="number" inputmode="decimal" min="0" max="${amt}" value="0"></label>
+      <div class="btns"><button class="btn primary" id="rollGo" type="button">Confirm</button><button class="btn" id="rollAllSave" type="button">All to savings</button><button class="btn" id="rollAllKeep" type="button">Keep it all</button></div></div>`;
+  }
+
+  // hero
+  const pct=c.budget>0?c.left/c.budget:0;
+  const state=c.left<0?"red":pct<.25?"orange":"lime";
+  h+=`<div class="card hero"><div class="row"><span class="label">${isPast?"Had left to spend":"Left to spend this week"}</span>${px("bolt",14).replace('class="px"','class="px" style="color:var(--'+state+')"')}</div>
+    <div class="big num ${c.left<0?"neg":pct<.25?"warn":""}" id="heroNum" style="font-size:min(104px,calc((100vw - 72px) / ${Math.max(5,money(c.left).length)*0.52}))">${money(c.left)}</div>
+    ${meter(pct,state)}
+    <div class="row small muted"><span>${money(c.otherSpent+c.gasOver+c.lumpSpend)} spent of ${money(c.budget)}</span>${c.rollIn?`<span>${c.rollIn>0?"+":""}${money(c.rollIn)} from last week</span>`:""}</div>
+    ${c.first?`<div class="banner small">First week is smaller. Car insurance is due Nov 1, so this check pays the full $150 instead of the usual $38.</div>`:""}
+    ${c.left<0?`<div class="banner red small">Over by ${money(-c.left)}. It comes out of next week.</div>`:""}
+    ${c.base<0?`<div class="banner red small">This paycheck doesn't cover bills and savings. Lower savings for now in Settings.</div>`:""}
+  </div>`;
+
+  // gas
+  const gp=st.gas?c.gasSpent/st.gas:0;
+  h+=`<div class="card"><div class="row"><h2 style="color:var(--orange)">${px("fuel",14)} Gas tank</h2>${c.gasOver?`<span class="tag red">${money(c.gasOver)} over</span>`:c.gasSpent?`<span class="tag orange">${money(c.gasUnder)} left</span>`:`<span class="tag gray">Full</span>`}</div>
+    ${meter(gp,c.gasOver?"red":"orange",15,true)}
+    <div class="small muted">${money(c.gasSpent)} of ${money(st.gas)} this week. ${c.gasOver?"The extra came out of your spending money.":"Whatever's left moves to your spending money when the week ends."}</div></div>`;
+
+  // payday missions
+  const ms=[["cash","Withdraw cash",c.bilDue?`${money(c.bilDue)} for BIL + ${money(c.saveDue)} for savings`:"All of it goes to savings",c.cash]];
+  if(c.bilDue)ms.push(["bil","Give cash to your BIL",`${money(c.remaining)} left before this one`,c.bilDue]);
+  ms.push(["save","Put cash in savings","Into your savings stash",c.saveDue],["cashapp","Load Cash App","Covers Spotify (23rd) and Oscar (28th)",st.cashapp]);
+  const done=ms.filter(m=>w.checks?.[m[0]]).length;
+  h+=`<div class="card"><div class="row"><h2>${px("cash",14)} Payday missions</h2><span class="tag ${done===ms.length?"lime":"gray"}">${done}/${ms.length}</span></div>
+    <div class="row small"><span class="muted">${D(wk)}</span><button class="btn sm" id="editPay" type="button">Paid <span class="digits">${money(w.pay)}</span> &middot; edit</button></div>
+    <div class="missions">${ms.map(([k,t,sub,amt])=>`<button type="button" class="mission ${w.checks?.[k]?"on":""} ${zapKey==="w"+k?"zap":""}" data-chk="${k}" aria-pressed="${!!w.checks?.[k]}"><span class="mbox">${px("check",16)}</span><span class="mw"><span class="mt">${t}</span><small>${sub}</small></span><span class="ma num">${money(amt)}</span></button>`).join("")}</div>
+    ${(w.extras||[]).length?`<div class="list">${w.extras.map(e=>`<div class="item"><span class="w">${esc(e.note||"Side money")}${e.toSave?` <span class="muted small">&middot; ${money(e.toSave)} to savings</span>`:""}</span><span class="v num" style="color:var(--lime)">+${money(e.amt)}</span><button class="x" type="button" data-delx="${e.id}" aria-label="Remove">${px("x",14)}</button></div>`).join("")}</div>`:""}
+    <button class="btn sm" id="addExtra" type="button" style="align-self:flex-start">${px("plus",12)} Side money</button>
+  </div>`;
+
+  // spending
+  const sp=[...c.sp].sort((a,b)=>b.date.localeCompare(a.date)||b.t-a.t);
+  h+=`<div class="card"><div class="row"><h2>${px("receipt",14)} Spent this week</h2><span class="tag gray">${sp.length} ${sp.length===1?"charge":"charges"}</span></div>
+    ${sp.length?`<div class="list">${sp.map(s=>`<div class="item"><span class="d">${nice(s.date,{weekday:"short"})}</span><span class="w">${esc(s.where||s.cat)} <span class="muted small">&middot; ${esc(s.cat)}</span></span><span class="v num" style="${s.cat==="Gas"?"color:var(--orange)":""}">${money(s.amt)}</span><button class="x" type="button" data-dels="${s.id}" aria-label="Delete charge">${px("x",14)}</button></div>`).join("")}</div>`
+      :`<div class="muted small">Nothing yet. Tap <b>I spent money</b> every time you buy something.</div>`}
+  </div>`;
+
+  // monthly missions
+  const ref=isCur?(notStarted?st.startDate:today()):wk;
+  const mk=ref.slice(0,7), mon=S.monthly[mk]||{};
+  const bills=[["zelle",1,"Zelle your brother","Car insurance",150],["spotify",23,"Spotify went through","From Cash App",12.99],["oscar",28,"Oscar autopay went through","From Cash App, covers next month",102.43]];
+  const mName=parse(mk+"-01").toLocaleDateString("en-US",{month:"long"});
+  const mdone=bills.filter(b=>mon[b[0]]).length;
+  h+=`<div class="card"><div class="row"><h2>${px("cal",14)} ${mName} missions</h2><span class="tag ${mdone===3?"lime":"gray"}">${mdone}/3</span></div><div class="missions">${bills.map(([k,day,t,sub,amt])=>{
+      const due=mk+"-"+pad(day), d=daysBetween(ref,due), on=mon[k];
+      const tag=on?`<span class="tag lime">Done</span>`:d<0?`<span class="tag red">Check it</span>`:d===0?`<span class="tag orange">Today</span>`:`<span class="tag gray">${d}d</span>`;
+      return `<button type="button" class="mission ${on?"on":""} ${zapKey==="m"+k?"zap":""}" data-mon="${k}" data-mk="${mk}" aria-pressed="${!!on}"><span class="mbox">${px("check",16)}</span><span class="mw"><span class="mt">${t}</span><small>${nice(due)} &middot; ${sub} &middot; ${money(amt)}</small></span>${tag}</button>`}).join("")}</div></div>`;
+
+  // savings level
+  const sv=savingsTotal(), lv=levelOf(sv), nextT=LEVELS[lv+1], curT=LEVELS[lv];
+  h+=`<div class="card" style="border-color:rgba(169,112,255,.35)"><div class="row"><h2 style="color:var(--purple)">${px("coin",14)} Savings</h2><span class="tag purple">Cash</span></div>
+    <div class="level"><div class="lvl"><div><span>LVL</span><b>${lv+1}</b></div></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px"><div class="stat num">${money(sv)}</div>
+      ${nextT?meter((sv-curT)/(nextT-curT),"purple",15,true):""}
+      <div class="small muted">${nextT?`${money(nextT-sv)} to unlock level ${lv+2} at ${money(nextT)}`:"Max level. Legend."}</div></div></div></div>`;
+
+  // BIL
+  const paid=bilPaidTotal(), rem=Math.max(0,st.bilStart-paid);
+  let payoff="";
+  if(rem>0){const n=Math.ceil(rem/st.bil);const next=W(cur).checks?.bil?addDays(cur,7):cur;payoff=nice(addDays(next,(n-1)*7),{month:"short",day:"numeric",year:"numeric"})}
+  h+=`<div class="card"><div class="row"><h2>${px("car",14)} Paying back BIL</h2>${rem===0?`<span class="tag lime">Cleared</span>`:`<span class="tag gray">${Math.ceil(rem/st.bil)} paydays left</span>`}</div>
+    <div class="row" style="align-items:flex-end"><div><div class="stat num">${money(rem)}</div><div class="small muted">left of ${money(st.bilStart)}</div></div>
+    ${rem?`<div style="text-align:right"><div class="label">Done around</div><div class="digits">${payoff}</div></div>`:""}</div>
+    ${meter(st.bilStart?rem/st.bilStart:0,"red",20)}
+    ${lumps().length?`<div class="list">${lumps().map(l=>`<div class="item"><span class="d">${nice(l.date,{month:"short"})}</span><span class="w">${esc(l.note||"Extra payment")} <span class="muted small">&middot; ${{sold:"from a sale / side money",savings:"from savings",spend:"from spending money"}[l.src]}</span></span><span class="v num" style="color:var(--lime)">-${money(l.amt)}</span><button class="x" type="button" data-dell="${l.id}" aria-label="Remove payment">${px("x",14)}</button></div>`).join("")}</div>`:""}
+    ${rem>0?`<button class="btn sm" id="payLump" type="button" style="align-self:flex-start">${px("bolt",12)} Pay extra / pay it all off</button>`:""}
+    ${rem===0?`<div class="small muted">The ${money(st.bil)} a week now goes to savings automatically.</div>`:""}</div>`;
+
+  // coming up
+  const t0=notStarted?st.startDate:today();
+  const yearly=[["Claude",5,4,200],["Crunch yearly fee",6,8,60]].map(([n,m,d,a])=>{const y=parse(t0).getFullYear();let ds=`${y}-${pad(m)}-${pad(d)}`;if(ds<t0)ds=`${y+1}-${pad(m)}-${pad(d)}`;return {n,ds,a,days:daysBetween(t0,ds)}}).sort((a,b)=>a.days-b.days);
+  h+=`<div class="card"><h2>${px("clock",14)} Coming up</h2><div>${yearly.map(y=>`<div class="kv"><span>${y.n} &middot; ${nice(y.ds)} <span class="muted small">in ${y.days} days</span></span><b class="num">${money(y.a)}</b></div>`).join("")}</div>
+    <div class="small muted">Already covered by what stays in the bank. Nothing to do.</div></div>`;
+
+  // bank money
+  h+=`<div class="card"><details><summary><h2>${px("lock",14)} Stays in the bank</h2><span class="chev">${px("right",14)}</span></summary>
+    <div style="margin-top:10px">
+    <div class="kv"><span>Car insurance, Zelle on the 1st</span><b>$150/mo</b></div>
+    <div class="kv"><span>Crunch + Collectr, automatic</span><b>$21/mo</b></div>
+    <div class="kv"><span>Gas</span><b>~$130/mo</b></div>
+    <div class="kv"><span>Claude (May 4) + Crunch fee (Jun 8)</span><b>$260/yr</b></div>
+    <div class="small muted" style="margin-top:8px">Don't touch it. Each paycheck leaves ${money(c.bank)} in the bank for these.</div></div></details></div>`;
+
+  // settings
+  h+=`<div class="card"><details><summary><h2>${px("gear",14)} Settings</h2><span class="chev">${px("right",14)}</span></summary>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+    <div class="grid2">
+      <label class="f" for="s_pay">Normal paycheck<input id="s_pay" type="number" inputmode="decimal" value="${st.pay}"></label>
+      <label class="f" for="s_save">Savings / week<input id="s_save" type="number" inputmode="decimal" value="${st.save}"></label>
+      <label class="f" for="s_bil">BIL / week<input id="s_bil" type="number" inputmode="decimal" value="${st.bil}"></label>
+      <label class="f" for="s_bilStart">BIL total owed<input id="s_bilStart" type="number" inputmode="decimal" value="${st.bilStart}"></label>
+      <label class="f" for="s_gas">Gas / week<input id="s_gas" type="number" inputmode="decimal" value="${st.gas}"></label>
+      <label class="f" for="s_savingsStart">Savings already had<input id="s_savingsStart" type="number" inputmode="decimal" value="${st.savingsStart}"></label>
+    </div>
+    <button class="btn primary" id="saveSettings" type="button" style="justify-content:center">Save settings</button>
+    <div class="small muted">Normal paycheck applies to weeks you haven't opened yet. To change one week, tap "Paid ... edit" on that week.</div>
+    <div class="btns"><button class="btn sm" id="exportBtn" type="button">Back up my data</button><button class="btn sm" id="importBtn" type="button">Restore a backup</button></div>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div></details></div>`;
+  h+=`<div class="sync" id="sync">${syncMsg}</div>`;
+
+  document.getElementById("app").innerHTML=h;
+  zapKey=null;
+  countUp(c.left);
+  bind();
+}
+function countUp(to){
+  const el=document.getElementById("heroNum"); if(!el)return;
+  const from=lastHero; lastHero=to;
+  if(from===null||from===to||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const t0=performance.now(), dur=450;
+  const step=t=>{const k=Math.min(1,(t-t0)/dur), e=1-Math.pow(1-k,3);el.textContent=money(from+(to-from)*e);if(k<1)requestAnimationFrame(step);else el.textContent=money(to)};
+  requestAnimationFrame(step);
+}
+
+/* ---------- interactions ---------- */
+function toast(t,cls=""){document.querySelectorAll(".toast").forEach(x=>x.remove());const d=document.createElement("div");d.className="toast "+cls;d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2000)}
+const $=id=>document.getElementById(id);
+function withLevelCheck(fn){const before=levelOf(savingsTotal());fn();const after=levelOf(savingsTotal());if(after>before){setTimeout(()=>{toast("Level "+(after+1)+" unlocked","purple");haptic()},250)}}
+function bind(){
+  $("prevW")?.addEventListener("click",()=>{viewWeek=addDays(viewWeek,-7);render()});
+  $("nextW")?.addEventListener("click",()=>{viewWeek=addDays(viewWeek,7);render()});
+  $("goNow")?.addEventListener("click",()=>{viewWeek=currentWeek();render()});
+  document.querySelectorAll("[data-chk]").forEach(b=>b.addEventListener("click",()=>{
+    haptic();
+    withLevelCheck(()=>{
+      const k=b.dataset.chk, c=calc(viewWeek), w=ensureW(viewWeek); w.checks=w.checks||{};
+      w.checks[k]=!w.checks[k];
+      if(k==="bil")w.bilPaid=w.checks[k]?c.bilDue:0;
+      if(k==="save")w.savePaid=w.checks[k]?c.saveDue:0;
+      if(w.checks[k]){zapKey="w"+k;toast("Mission complete")}
+      persist();render();
+    });
+  }));
+  document.querySelectorAll("[data-mon]").forEach(b=>b.addEventListener("click",()=>{
+    haptic();
+    const mk=b.dataset.mk,k=b.dataset.mon;S.monthly[mk]=S.monthly[mk]||{};S.monthly[mk][k]=!S.monthly[mk][k];
+    if(S.monthly[mk][k]){zapKey="m"+k;toast("Mission complete")}
+    persist();render();
+  }));
+  document.querySelectorAll("[data-dels]").forEach(b=>b.addEventListener("click",()=>{S.spends=S.spends.filter(s=>s.id!==b.dataset.dels);persist();render();toast("Charge deleted")}));
+  document.querySelectorAll("[data-delx]").forEach(b=>b.addEventListener("click",()=>{withLevelCheck(()=>{const w=ensureW(viewWeek);w.extras=w.extras.filter(e=>e.id!==b.dataset.delx);persist();render()})}));
+  $("editPay")?.addEventListener("click",paySheet);
+  $("payLump")?.addEventListener("click",lumpSheet);
+  document.querySelectorAll("[data-dell]").forEach(b=>b.addEventListener("click",()=>{withLevelCheck(()=>{S.bilLump=lumps().filter(l=>l.id!==b.dataset.dell);persist();render();toast("Payment removed")})}));
+  $("addExtra")?.addEventListener("click",extraSheet);
+  const prev=addDays(currentWeek(),-7);
+  const closeRoll=keep=>{haptic();withLevelCheck(()=>{const amt=r2(calc(prev).endLeft);keep=Math.max(0,Math.min(amt,keep||0));S.closed[prev]={toNext:r2(keep),toSave:r2(amt-keep)};persist();render();toast("Saved")})};
+  $("rollGo")?.addEventListener("click",()=>closeRoll(parseFloat($("rollAmt").value)));
+  $("rollAllSave")?.addEventListener("click",()=>closeRoll(0));
+  $("rollAllKeep")?.addEventListener("click",()=>closeRoll(Infinity));
+  $("saveSettings")?.addEventListener("click",()=>{
+    for(const k of ["pay","save","bil","bilStart","gas","savingsStart"]){const v=parseFloat($("s_"+k).value);if(!isNaN(v)&&v>=0)S.settings[k]=v}
+    persist();render();toast("Settings saved");
+  });
+  $("exportBtn")?.addEventListener("click",exportData);
+  $("importBtn")?.addEventListener("click",()=>$("importFile").click());
+  $("importFile")?.addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.settings)throw 0;S=merge(x);persist();render();toast("Backup restored")}catch(_){toast("Not a Payday backup")}};r.readAsText(f)});
+}
+async function exportData(){
+  const data=JSON.stringify(S,null,1);
+  try{const dl=await window.claude?.use?.("downloads");if(dl){await dl.save({filename:"payday-backup-"+today()+".json",data});return}}catch(e){}
+  try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));a.download="payday-backup-"+today()+".json";document.body.appendChild(a);a.click();a.remove();toast("Backup saved");return}catch(e){}
+  try{await navigator.clipboard.writeText(data);toast("Backup copied. Paste in Notes.")}catch(e){toast("Couldn't back up here")}
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html,onReady){
+  const root=$("sheetRoot");
+  root.innerHTML=`<div class="sheetbg" id="sbg"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  $("sbg").addEventListener("click",e=>{if(e.target.id==="sbg")closeSheet()});
+  root.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",closeSheet));
+  onReady&&onReady();
+}
+function closeSheet(){$("sheetRoot").innerHTML=""}
+function spendSheet(){
+  haptic();
+  let cat="Food";
+  const def=today()<S.settings.startDate?S.settings.startDate:today();
+  openSheet(`<div class="row"><h2>${px("receipt",14)} New charge</h2><button class="btn sm" data-close type="button">Cancel</button></div>
+    <input class="amtin num" id="sp_amt" type="number" inputmode="decimal" placeholder="$0" aria-label="Amount">
+    <label class="f" for="sp_where">Where<input id="sp_where" type="text" placeholder="Wawa, Chipotle, Target" autocomplete="off"></label>
+    <div class="chips" id="sp_cats">${CATS.map(c=>`<button type="button" class="chip ${c==="Gas"?"gas":""} ${c===cat?"on":""}" data-cat="${c}">${c==="Gas"?px("fuel",12):""}${c}</button>`).join("")}</div>
+    <label class="f" for="sp_date">Date<input id="sp_date" type="date" value="${def}" min="${S.settings.startDate}"></label>
+    <button class="btn primary" id="sp_go" type="button" style="padding:15px;justify-content:center">Add charge</button>`,()=>{
+      setTimeout(()=>$("sp_amt").focus(),60);
+      $("sp_cats").querySelectorAll("[data-cat]").forEach(b=>b.addEventListener("click",()=>{haptic();cat=b.dataset.cat;$("sp_cats").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===b))}));
+      $("sp_go").addEventListener("click",()=>{
+        const amt=r2(parseFloat($("sp_amt").value));
+        if(!(amt>0)){$("sp_amt").focus();toast("Type how much you spent");return}
+        let date=$("sp_date").value||def; if(date<S.settings.startDate)date=S.settings.startDate;
+        S.spends.push({id:uid(),t:Date.now(),date,amt,where:$("sp_where").value.trim(),cat});
+        viewWeek=sunday(date);persist();closeSheet();haptic();render();
+        toast(`${money(calc(viewWeek).left)} left this week`);
+      });
+    });
+}
+function lumpSheet(){
+  const rem=Math.max(0,S.settings.bilStart-bilPaidTotal());
+  let src="sold";
+  const def=today()<S.settings.startDate?S.settings.startDate:today();
+  const srcs=[["sold","Sold something / side money","Doesn't touch your savings or spending"],["savings","From my savings","Comes out of your savings total"],["spend","From this week's spending money","Comes out of what's left this week"]];
+  openSheet(`<div class="row"><h2>${px("car",14)} Pay BIL extra</h2><button class="btn sm" data-close type="button">Cancel</button></div>
+    <input class="amtin num" id="l_amt" type="number" inputmode="decimal" placeholder="$0" aria-label="Amount">
+    <div class="btns"><button class="btn sm" id="l_all" type="button">Pay it all off (${money(rem)})</button></div>
+    <div class="label">Where's the money from</div>
+    <div class="missions" id="l_src">${srcs.map(([k,t,sub])=>`<button type="button" class="mission ${k===src?"on":""}" data-src="${k}"><span class="mbox">${px("check",16)}</span><span class="mw"><span class="mt" style="text-decoration:none;color:var(--ink)">${t}</span><small>${sub}</small></span></button>`).join("")}</div>
+    <label class="f" for="l_note">Note<input id="l_note" type="text" placeholder="Sold my PS5"></label>
+    <button class="btn primary" id="l_go" type="button" style="padding:15px;justify-content:center">Record payment</button>`,()=>{
+      setTimeout(()=>$("l_amt").focus(),60);
+      $("l_all").addEventListener("click",()=>{$("l_amt").value=rem});
+      $("l_src").querySelectorAll("[data-src]").forEach(b=>b.addEventListener("click",()=>{haptic();src=b.dataset.src;$("l_src").querySelectorAll(".mission").forEach(x=>x.classList.toggle("on",x===b))}));
+      $("l_go").addEventListener("click",()=>{
+        let amt=r2(parseFloat($("l_amt").value)); if(!(amt>0)){toast("Type the amount");return}
+        if(amt>rem){amt=rem;toast("Capped at what you owe: "+money(rem))}
+        S.bilLump=lumps();S.bilLump.push({id:uid(),date:def,amt,src,note:$("l_note").value.trim()});
+        persist();closeSheet();haptic();render();
+        const left=Math.max(0,S.settings.bilStart-bilPaidTotal());
+        setTimeout(()=>toast(left===0?"BIL cleared. Boss defeated.":money(left)+" left to BIL","purple"),amt>rem?2100:0);
+      });
+    });
+}
+function paySheet(){
+  const w=W(viewWeek);
+  openSheet(`<div class="row"><h2>${px("cash",14)} This paycheck</h2><button class="btn sm" data-close type="button">Cancel</button></div>
+    <input class="amtin num" id="p_amt" type="number" inputmode="decimal" value="${w.pay}" aria-label="Paycheck amount">
+    <div class="small muted">BIL, savings and bills stay the same. Your spending money goes up or down by the difference.</div>
+    <button class="btn primary" id="p_go" type="button" style="padding:15px;justify-content:center">Save</button>`,()=>{
+      $("p_go").addEventListener("click",()=>{const v=parseFloat($("p_amt").value);if(isNaN(v)||v<0)return;ensureW(viewWeek).pay=v;persist();closeSheet();haptic();render()});
+    });
+}
+function extraSheet(){
+  openSheet(`<div class="row"><h2>${px("bolt",14)} Side money</h2><button class="btn sm" data-close type="button">Cancel</button></div>
+    <input class="amtin num" id="x_amt" type="number" inputmode="decimal" placeholder="$0" aria-label="Amount">
+    <label class="f" for="x_note">From<input id="x_note" type="text" placeholder="Side job, sold a card"></label>
+    <label class="f" for="x_save">How much goes to savings<input id="x_save" type="number" inputmode="decimal" value="0"></label>
+    <div class="btns"><button class="btn sm" id="x_half" type="button">Half</button><button class="btn sm" id="x_all" type="button">All of it</button><button class="btn sm" id="x_none" type="button">None</button></div>
+    <div class="small muted">The rest is added to your spending money this week.</div>
+    <button class="btn primary" id="x_go" type="button" style="padding:15px;justify-content:center">Add it</button>`,()=>{
+      setTimeout(()=>$("x_amt").focus(),60);
+      const a=()=>parseFloat($("x_amt").value)||0;
+      $("x_half").addEventListener("click",()=>$("x_save").value=r2(a()/2));
+      $("x_all").addEventListener("click",()=>$("x_save").value=a());
+      $("x_none").addEventListener("click",()=>$("x_save").value=0);
+      $("x_go").addEventListener("click",()=>{
+        const amt=a(); if(!(amt>0)){toast("Type the amount");return}
+        const ts=Math.max(0,Math.min(amt,parseFloat($("x_save").value)||0));
+        withLevelCheck(()=>{const w=ensureW(viewWeek);w.extras=w.extras||[];w.extras.push({id:uid(),amt,toSave:ts,note:$("x_note").value.trim()});persist();closeSheet();haptic();render()});
+        toast("Side money added");
+      });
+    });
+}
+$("fab").innerHTML=px("plus",16)+"<span>I spent money</span>";
+$("fab").addEventListener("click",spendSheet);
+
+/* ---------- boot ---------- */
+const local=loadLocal(); if(local)S=merge(local);
+try{navigator.storage?.persist?.()}catch(e){}
+if(!window.claude)syncMsg="Saved on this phone. Back up once a week in Settings.";
+render();
+connect();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){viewWeek=null;render()}});
+})();
+</script>
+
+</body></html>
