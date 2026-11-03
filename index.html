@@ -320,9 +320,9 @@ function render(){
     <div class="small muted">${money(c.gasSpent)} of ${money(st.gas)} this week. ${c.gasOver?"The extra came out of your spending money.":"Whatever's left moves to your spending money when the week ends."}</div></div>`;
 
   // payday missions
-  const ms=[["cash","Withdraw cash",c.bilDue?`${money(c.bilDue)} for BIL + ${money(c.saveDue)} for savings`:"All of it goes to savings",c.cash]];
-  if(c.bilDue)ms.push(["bil","Give cash to your BIL",`${money(c.remaining)} left before this one`,c.bilDue]);
-  ms.push(["save","Put cash in savings","Into your savings stash",c.saveDue],["cashapp","Load Cash App","Covers Spotify (23rd) and Oscar (28th)",st.cashapp]);
+  const ms=[];
+  if(c.bilDue)ms.push(["bil","Withdraw cash for your BIL",`Take out ${money(c.bilDue)} and give it to him · ${money(c.remaining)} left before this one`,c.bilDue]);
+  ms.push(["save","Set aside savings","Stays in your checking. Don't spend it.",c.saveDue],["cashapp","Load Cash App","Covers Spotify (23rd) and Oscar (28th)",st.cashapp]);
   const done=ms.filter(m=>w.checks?.[m[0]]).length;
   h+=`<div class="card"><div class="row"><h2>${px("cash",14)} Payday missions</h2><span class="tag ${done===ms.length?"lime":"gray"}">${done}/${ms.length}</span></div>
     <div class="row small"><span class="muted">${D(wk)}</span><button class="btn sm" id="editPay" type="button">Paid <span class="digits">${money(w.pay)}</span> &middot; edit</button></div>
@@ -351,7 +351,7 @@ function render(){
 
   // savings level
   const sv=savingsTotal(), lv=levelOf(sv), nextT=LEVELS[lv+1], curT=LEVELS[lv];
-  h+=`<div class="card" style="border-color:rgba(169,112,255,.35)"><div class="row"><h2 style="color:var(--purple)">${px("coin",14)} Savings</h2><span class="tag purple">Cash</span></div>
+  h+=`<div class="card" style="border-color:rgba(169,112,255,.35)"><div class="row"><h2 style="color:var(--purple)">${px("coin",14)} Savings</h2><span class="tag purple">In checking</span></div>
     <div class="level"><div class="lvl"><div><span>LVL</span><b>${lv+1}</b></div></div>
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px"><div class="stat num">${money(sv)}</div>
       ${nextT?meter((sv-curT)/(nextT-curT),"purple",15,true):""}
@@ -382,7 +382,8 @@ function render(){
     <div class="kv"><span>Crunch + Collectr, automatic</span><b>$21/mo</b></div>
     <div class="kv"><span>Gas</span><b>~$130/mo</b></div>
     <div class="kv"><span>Claude (May 4) + Crunch fee (Jun 8)</span><b>$260/yr</b></div>
-    <div class="small muted" style="margin-top:8px">Don't touch it. Each paycheck leaves ${money(c.bank)} in the bank for these.</div></div></details></div>`;
+    <div class="kv"><span>Your savings</span><b>${money(savingsTotal())}</b></div>
+    <div class="small muted" style="margin-top:8px">Don't touch it. Each paycheck leaves ${money(c.bank)} in the bank for bills, plus ${money(c.saveDue)} for savings. Only your weekly spending money is yours to spend.</div></div></details></div>`;
 
   // settings
   h+=`<div class="card"><details><summary><h2>${px("gear",14)} Settings</h2><span class="chev">${px("right",14)}</span></summary>
