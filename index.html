@@ -133,6 +133,20 @@ input{font:inherit;font-family:var(--body);font-size:16px;color:var(--ink);backg
 @keyframes drop{from{transform:translate(-50%,-14px);opacity:0}}
 .sync{font-family:var(--pixel);font-size:10px;letter-spacing:.06em;color:var(--muted);text-align:center;text-transform:uppercase}
 .haptic{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+/* collapsible sections */
+.sechead{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:0;text-align:left;min-height:28px}
+.sechead h2{flex:1;min-width:0}
+.sechead .chev{color:var(--muted);transition:transform .2s;display:grid;place-items:center}
+.sec.open .sechead .chev{transform:rotate(90deg)}
+.secbody{display:flex;flex-direction:column;gap:12px}
+.sec:not(.open){padding-block:13px}
+/* recap */
+.recap-big{font-family:var(--digit);font-size:72px;line-height:.85;text-align:center}
+.catrow{display:grid;grid-template-columns:92px 1fr auto;gap:10px;align-items:center;font-size:13.5px}
+.catbar{height:8px;border-radius:2px;background:#1f1b29;overflow:hidden}
+.catbar i{display:block;height:100%;background:var(--c,var(--lime));box-shadow:0 0 6px var(--c,var(--lime))}
+.recap-sec{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.linkbtn{background:none;border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--purple);font-family:var(--pixel);font-size:11px;letter-spacing:.06em;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;align-self:center}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head><body>
@@ -222,6 +236,14 @@ async function connect(){
   }catch(e){syncMsg="Saved on this phone only"; render()}
 }
 
+/* ---------- collapsible sections (remembered per phone) ---------- */
+let UI={};try{UI=JSON.parse(localStorage.getItem("payday-ui")||"{}")}catch(e){}
+UI.c=UI.c||{}; UI.recap=UI.recap||{};
+const saveUI=()=>{try{localStorage.setItem("payday-ui",JSON.stringify(UI))}catch(e){}};
+const CLOSED_BY_DEFAULT={coming:1,bank:1,settings:1};
+const isOpen=id=>id in UI.c?!UI.c[id]:!CLOSED_BY_DEFAULT[id];
+function sec(id,title,tag,body,style=""){const o=isOpen(id);return `<section class="card sec ${o?"open":""}" data-sec="${id}" style="${style}"><button type="button" class="sechead" data-toggle="${id}" aria-expanded="${o}">${title}${tag||""}<span class="chev">${px("right",14)}</span></button><div class="secbody"${o?"":" hidden"}>${body}</div></section>`}
+
 /* ---------- money math ---------- */
 const currentWeek=()=>{const t=today(),s=S.settings.startDate;return t<s?s:sunday(t)};
 function W(wk){return S.weeks[wk]||{pay:S.settings.pay,extras:[],checks:{}}}
@@ -295,11 +317,11 @@ function render(){
   if(isCur&&prev>=st.startDate&&!S.closed[prev]){
     const amt=r2(calc(prev).endLeft);
     h+=`<div class="card" style="border-color:rgba(169,112,255,.6)"><h2 style="color:var(--purple)">${px("star",14)} Bonus round</h2>
-      <div>You finished last week with <b class="digits" style="color:var(--lime)">${money(amt)}</b> left.</div>
-      <div class="muted small">Keep some for this week. The rest goes to savings.</div>
-      <label class="f" for="rollAmt">Keep for this week<input id="rollAmt" type="number" inputmode="decimal" min="0" max="${amt}" value="0"></label>
-      <div class="btns"><button class="btn primary" id="rollGo" type="button">Confirm</button><button class="btn" id="rollAllSave" type="button">All to savings</button><button class="btn" id="rollAllKeep" type="button">Keep it all</button></div></div>`;
+      <div>You finished last week with <b class="digits" style="color:var(--lime)">${money(amt)}</b> left. Decide what to do with it.</div>
+      <button class="btn primary" type="button" data-recap="${prev}" style="align-self:flex-start">Open last week's recap</button></div>`;
   }
+  if(isCur&&prev>=st.startDate&&S.closed[prev]) h+=`<button class="linkbtn" type="button" data-recap="${prev}">${px("star",12)} Last week's recap</button>`;
+  if(isPast&&addDays(wk,7)<=cur) h+=`<button class="linkbtn" type="button" data-recap="${wk}">${px("star",12)} This week's recap</button>`;
 
   // hero
   const pct=c.budget>0?c.left/c.budget:0;
@@ -315,28 +337,26 @@ function render(){
 
   // gas
   const gp=st.gas?c.gasSpent/st.gas:0;
-  h+=`<div class="card"><div class="row"><h2 style="color:var(--orange)">${px("fuel",14)} Gas tank</h2>${c.gasOver?`<span class="tag red">${money(c.gasOver)} over</span>`:c.gasSpent?`<span class="tag orange">${money(c.gasUnder)} left</span>`:`<span class="tag gray">Full</span>`}</div>
-    ${meter(gp,c.gasOver?"red":"orange",15,true)}
-    <div class="small muted">${money(c.gasSpent)} of ${money(st.gas)} this week. ${c.gasOver?"The extra came out of your spending money.":"Whatever's left moves to your spending money when the week ends."}</div></div>`;
+  h+=sec("gas",`<h2 style="color:var(--orange)">${px("fuel",14)} Gas tank</h2>`,c.gasOver?`<span class="tag red">${money(c.gasOver)} over</span>`:c.gasSpent?`<span class="tag orange">${money(c.gasUnder)} left</span>`:`<span class="tag gray">Full</span>`,
+    `${meter(gp,c.gasOver?"red":"orange",15,true)}
+    <div class="small muted">${money(c.gasSpent)} of ${money(st.gas)} this week. ${c.gasOver?"The extra came out of your spending money.":"Whatever's left moves to your spending money when the week ends."}</div>`);
 
   // payday missions
   const ms=[];
   if(c.bilDue)ms.push(["bil","Withdraw cash for your BIL",`Take out ${money(c.bilDue)} and give it to him · ${money(c.remaining)} left before this one`,c.bilDue]);
   ms.push(["save","Set aside savings","Stays in your checking. Don't spend it.",c.saveDue],["cashapp","Load Cash App","Covers Spotify (23rd) and Oscar (28th)",st.cashapp]);
   const done=ms.filter(m=>w.checks?.[m[0]]).length;
-  h+=`<div class="card"><div class="row"><h2>${px("cash",14)} Payday missions</h2><span class="tag ${done===ms.length?"lime":"gray"}">${done}/${ms.length}</span></div>
-    <div class="row small"><span class="muted">${D(wk)}</span><button class="btn sm" id="editPay" type="button">Paid <span class="digits">${money(w.pay)}</span> &middot; edit</button></div>
+  h+=sec("payday",`<h2>${px("cash",14)} Payday missions</h2>`,`<span class="tag ${done===ms.length?"lime":"gray"}">${done}/${ms.length}</span>`,
+    `<div class="row small"><span class="muted">${D(wk)}</span><button class="btn sm" id="editPay" type="button">Paid <span class="digits">${money(w.pay)}</span> &middot; edit</button></div>
     <div class="missions">${ms.map(([k,t,sub,amt])=>`<button type="button" class="mission ${w.checks?.[k]?"on":""} ${zapKey==="w"+k?"zap":""}" data-chk="${k}" aria-pressed="${!!w.checks?.[k]}"><span class="mbox">${px("check",16)}</span><span class="mw"><span class="mt">${t}</span><small>${sub}</small></span><span class="ma num">${money(amt)}</span></button>`).join("")}</div>
     ${(w.extras||[]).length?`<div class="list">${w.extras.map(e=>`<div class="item"><span class="w">${esc(e.note||"Side money")}${e.toSave?` <span class="muted small">&middot; ${money(e.toSave)} to savings</span>`:""}</span><span class="v num" style="color:var(--lime)">+${money(e.amt)}</span><button class="x" type="button" data-delx="${e.id}" aria-label="Remove">${px("x",14)}</button></div>`).join("")}</div>`:""}
-    <button class="btn sm" id="addExtra" type="button" style="align-self:flex-start">${px("plus",12)} Side money</button>
-  </div>`;
+    <button class="btn sm" id="addExtra" type="button" style="align-self:flex-start">${px("plus",12)} Side money</button>`);
 
   // spending
   const sp=[...c.sp].sort((a,b)=>b.date.localeCompare(a.date)||b.t-a.t);
-  h+=`<div class="card"><div class="row"><h2>${px("receipt",14)} Spent this week</h2><span class="tag gray">${sp.length} ${sp.length===1?"charge":"charges"}</span></div>
-    ${sp.length?`<div class="list">${sp.map(s=>`<div class="item"><span class="d">${nice(s.date,{weekday:"short"})}</span><span class="w">${esc(s.where||s.cat)} <span class="muted small">&middot; ${esc(s.cat)}</span></span><span class="v num" style="${s.cat==="Gas"?"color:var(--orange)":""}">${money(s.amt)}</span><button class="x" type="button" data-dels="${s.id}" aria-label="Delete charge">${px("x",14)}</button></div>`).join("")}</div>`
-      :`<div class="muted small">Nothing yet. Tap <b>I spent money</b> every time you buy something.</div>`}
-  </div>`;
+  h+=sec("spent",`<h2>${px("receipt",14)} Spent this week</h2>`,`<span class="tag gray">${sp.length} &middot; ${money(c.otherSpent+c.gasSpent)}</span>`,
+    sp.length?`<div class="list">${sp.map(s=>`<div class="item"><span class="d">${nice(s.date,{weekday:"short"})}</span><span class="w">${esc(s.where||s.cat)} <span class="muted small">&middot; ${esc(s.cat)}</span></span><span class="v num" style="${s.cat==="Gas"?"color:var(--orange)":""}">${money(s.amt)}</span><button class="x" type="button" data-dels="${s.id}" aria-label="Delete charge">${px("x",14)}</button></div>`).join("")}</div>`
+      :`<div class="muted small">Nothing yet. Tap <b>I spent money</b> every time you buy something.</div>`);
 
   // monthly missions
   const ref=isCur?(notStarted?st.startDate:today()):wk;
@@ -344,51 +364,52 @@ function render(){
   const bills=[["zelle",1,"Zelle your brother","Car insurance",150],["spotify",23,"Spotify went through","From Cash App",12.99],["oscar",28,"Oscar autopay went through","From Cash App, covers next month",102.43]];
   const mName=parse(mk+"-01").toLocaleDateString("en-US",{month:"long"});
   const mdone=bills.filter(b=>mon[b[0]]).length;
-  h+=`<div class="card"><div class="row"><h2>${px("cal",14)} ${mName} missions</h2><span class="tag ${mdone===3?"lime":"gray"}">${mdone}/3</span></div><div class="missions">${bills.map(([k,day,t,sub,amt])=>{
+  h+=sec("monthly",`<h2>${px("cal",14)} ${mName} missions</h2>`,`<span class="tag ${mdone===3?"lime":"gray"}">${mdone}/3</span>`,`<div class="missions">${bills.map(([k,day,t,sub,amt])=>{
       const due=mk+"-"+pad(day), d=daysBetween(ref,due), on=mon[k];
       const tag=on?`<span class="tag lime">Done</span>`:d<0?`<span class="tag red">Check it</span>`:d===0?`<span class="tag orange">Today</span>`:`<span class="tag gray">${d}d</span>`;
-      return `<button type="button" class="mission ${on?"on":""} ${zapKey==="m"+k?"zap":""}" data-mon="${k}" data-mk="${mk}" aria-pressed="${!!on}"><span class="mbox">${px("check",16)}</span><span class="mw"><span class="mt">${t}</span><small>${nice(due)} &middot; ${sub} &middot; ${money(amt)}</small></span>${tag}</button>`}).join("")}</div></div>`;
+      return `<button type="button" class="mission ${on?"on":""} ${zapKey==="m"+k?"zap":""}" data-mon="${k}" data-mk="${mk}" aria-pressed="${!!on}"><span class="mbox">${px("check",16)}</span><span class="mw"><span class="mt">${t}</span><small>${nice(due)} &middot; ${sub} &middot; ${money(amt)}</small></span>${tag}</button>`}).join("")}</div>`);
 
   // savings level
   const sv=savingsTotal(), lv=levelOf(sv), nextT=LEVELS[lv+1], curT=LEVELS[lv];
-  h+=`<div class="card" style="border-color:rgba(169,112,255,.35)"><div class="row"><h2 style="color:var(--purple)">${px("coin",14)} Savings</h2><span class="tag purple">In checking</span></div>
-    <div class="level"><div class="lvl"><div><span>LVL</span><b>${lv+1}</b></div></div>
+  h+=sec("savings",`<h2 style="color:var(--purple)">${px("coin",14)} Savings</h2>`,`<span class="tag purple">LVL ${lv+1} &middot; ${money(sv)}</span>`,
+    `<div class="level"><div class="lvl"><div><span>LVL</span><b>${lv+1}</b></div></div>
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px"><div class="stat num">${money(sv)}</div>
       ${nextT?meter((sv-curT)/(nextT-curT),"purple",15,true):""}
-      <div class="small muted">${nextT?`${money(nextT-sv)} to unlock level ${lv+2} at ${money(nextT)}`:"Max level. Legend."}</div></div></div></div>`;
+      <div class="small muted">${nextT?`${money(nextT-sv)} to unlock level ${lv+2} at ${money(nextT)}`:"Max level. Legend."}</div></div></div>
+    <div class="small muted">Kept in your checking account.</div>`,"border-color:rgba(169,112,255,.35)");
 
   // BIL
   const paid=bilPaidTotal(), rem=Math.max(0,st.bilStart-paid);
   let payoff="";
   if(rem>0){const n=Math.ceil(rem/st.bil);const next=W(cur).checks?.bil?addDays(cur,7):cur;payoff=nice(addDays(next,(n-1)*7),{month:"short",day:"numeric",year:"numeric"})}
-  h+=`<div class="card"><div class="row"><h2>${px("car",14)} Paying back BIL</h2>${rem===0?`<span class="tag lime">Cleared</span>`:`<span class="tag gray">${Math.ceil(rem/st.bil)} paydays left</span>`}</div>
-    <div class="row" style="align-items:flex-end"><div><div class="stat num">${money(rem)}</div><div class="small muted">left of ${money(st.bilStart)}</div></div>
+  h+=sec("bil",`<h2>${px("car",14)} Paying back BIL</h2>`,rem===0?`<span class="tag lime">Cleared</span>`:`<span class="tag gray">${money(rem)} left</span>`,
+    `<div class="row" style="align-items:flex-end"><div><div class="stat num">${money(rem)}</div><div class="small muted">left of ${money(st.bilStart)}${rem?` &middot; ${Math.ceil(rem/st.bil)} paydays`:""}</div></div>
     ${rem?`<div style="text-align:right"><div class="label">Done around</div><div class="digits">${payoff}</div></div>`:""}</div>
     ${meter(st.bilStart?rem/st.bilStart:0,"red",20)}
     ${lumps().length?`<div class="list">${lumps().map(l=>`<div class="item"><span class="d">${nice(l.date,{month:"short"})}</span><span class="w">${esc(l.note||"Extra payment")} <span class="muted small">&middot; ${{sold:"from a sale / side money",savings:"from savings",spend:"from spending money"}[l.src]}</span></span><span class="v num" style="color:var(--lime)">-${money(l.amt)}</span><button class="x" type="button" data-dell="${l.id}" aria-label="Remove payment">${px("x",14)}</button></div>`).join("")}</div>`:""}
     ${rem>0?`<button class="btn sm" id="payLump" type="button" style="align-self:flex-start">${px("bolt",12)} Pay extra / pay it all off</button>`:""}
-    ${rem===0?`<div class="small muted">The ${money(st.bil)} a week now goes to savings automatically.</div>`:""}</div>`;
+    ${rem===0?`<div class="small muted">The ${money(st.bil)} a week now goes to savings automatically.</div>`:""}`);
 
   // coming up
   const t0=notStarted?st.startDate:today();
   const yearly=[["Claude",5,4,200],["Crunch yearly fee",6,8,60]].map(([n,m,d,a])=>{const y=parse(t0).getFullYear();let ds=`${y}-${pad(m)}-${pad(d)}`;if(ds<t0)ds=`${y+1}-${pad(m)}-${pad(d)}`;return {n,ds,a,days:daysBetween(t0,ds)}}).sort((a,b)=>a.days-b.days);
-  h+=`<div class="card"><h2>${px("clock",14)} Coming up</h2><div>${yearly.map(y=>`<div class="kv"><span>${y.n} &middot; ${nice(y.ds)} <span class="muted small">in ${y.days} days</span></span><b class="num">${money(y.a)}</b></div>`).join("")}</div>
-    <div class="small muted">Already covered by what stays in the bank. Nothing to do.</div></div>`;
+  h+=sec("coming",`<h2>${px("clock",14)} Coming up</h2>`,`<span class="tag gray">${yearly[0].days}d</span>`,
+    `<div>${yearly.map(y=>`<div class="kv"><span>${y.n} &middot; ${nice(y.ds)} <span class="muted small">in ${y.days} days</span></span><b class="num">${money(y.a)}</b></div>`).join("")}</div>
+    <div class="small muted">Already covered by what stays in the bank. Nothing to do.</div>`);
 
   // bank money
-  h+=`<div class="card"><details><summary><h2>${px("lock",14)} Stays in the bank</h2><span class="chev">${px("right",14)}</span></summary>
-    <div style="margin-top:10px">
+  h+=sec("bank",`<h2>${px("lock",14)} Stays in the bank</h2>`,"",
+    `<div>
     <div class="kv"><span>Car insurance, Zelle on the 1st</span><b>$150/mo</b></div>
     <div class="kv"><span>Crunch + Collectr, automatic</span><b>$21/mo</b></div>
     <div class="kv"><span>Gas</span><b>~$130/mo</b></div>
     <div class="kv"><span>Claude (May 4) + Crunch fee (Jun 8)</span><b>$260/yr</b></div>
-    <div class="kv"><span>Your savings</span><b>${money(savingsTotal())}</b></div>
-    <div class="small muted" style="margin-top:8px">Don't touch it. Each paycheck leaves ${money(c.bank)} in the bank for bills, plus ${money(c.saveDue)} for savings. Only your weekly spending money is yours to spend.</div></div></details></div>`;
+    <div class="kv"><span>Your savings</span><b>${money(savingsTotal())}</b></div></div>
+    <div class="small muted">Don't touch it. Each paycheck leaves ${money(c.bank)} in the bank for bills, plus ${money(c.saveDue)} for savings. Only your weekly spending money is yours to spend.</div>`);
 
   // settings
-  h+=`<div class="card"><details><summary><h2>${px("gear",14)} Settings</h2><span class="chev">${px("right",14)}</span></summary>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
-    <div class="grid2">
+  h+=sec("settings",`<h2>${px("gear",14)} Settings</h2>`,"",
+    `<div class="grid2">
       <label class="f" for="s_pay">Normal paycheck<input id="s_pay" type="number" inputmode="decimal" value="${st.pay}"></label>
       <label class="f" for="s_save">Savings / week<input id="s_save" type="number" inputmode="decimal" value="${st.save}"></label>
       <label class="f" for="s_bil">BIL / week<input id="s_bil" type="number" inputmode="decimal" value="${st.bil}"></label>
@@ -398,15 +419,15 @@ function render(){
     </div>
     <button class="btn primary" id="saveSettings" type="button" style="justify-content:center">Save settings</button>
     <div class="small muted">Normal paycheck applies to weeks you haven't opened yet. To change one week, tap "Paid ... edit" on that week.</div>
-    <div class="btns"><button class="btn sm" id="exportBtn" type="button">Back up my data</button><button class="btn sm" id="importBtn" type="button">Restore a backup</button></div>
-    <input type="file" id="importFile" accept=".json,application/json" hidden>
-    </div></details></div>`;
+    <div class="btns"><button class="btn sm" id="exportBtn" type="button">Back up my data</button><button class="btn sm" id="importBtn" type="button">Restore a backup</button><button class="btn sm" id="foldAll" type="button">Collapse all</button><button class="btn sm" id="openAll" type="button">Expand all</button></div>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>`);
   h+=`<div class="sync" id="sync">${syncMsg}</div>`;
 
   document.getElementById("app").innerHTML=h;
   zapKey=null;
   countUp(c.left);
   bind();
+  if(isCur&&prev>=st.startDate&&!UI.recap[prev]&&!$("sheetRoot").innerHTML){UI.recap[prev]=1;saveUI();setTimeout(()=>recapSheet(prev),350)}
 }
 function countUp(to){
   const el=document.getElementById("heroNum"); if(!el)return;
@@ -448,11 +469,15 @@ function bind(){
   $("payLump")?.addEventListener("click",lumpSheet);
   document.querySelectorAll("[data-dell]").forEach(b=>b.addEventListener("click",()=>{withLevelCheck(()=>{S.bilLump=lumps().filter(l=>l.id!==b.dataset.dell);persist();render();toast("Payment removed")})}));
   $("addExtra")?.addEventListener("click",extraSheet);
-  const prev=addDays(currentWeek(),-7);
-  const closeRoll=keep=>{haptic();withLevelCheck(()=>{const amt=r2(calc(prev).endLeft);keep=Math.max(0,Math.min(amt,keep||0));S.closed[prev]={toNext:r2(keep),toSave:r2(amt-keep)};persist();render();toast("Saved")})};
-  $("rollGo")?.addEventListener("click",()=>closeRoll(parseFloat($("rollAmt").value)));
-  $("rollAllSave")?.addEventListener("click",()=>closeRoll(0));
-  $("rollAllKeep")?.addEventListener("click",()=>closeRoll(Infinity));
+  document.querySelectorAll("[data-toggle]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.toggle, el=b.closest(".sec"), o=!el.classList.contains("open");
+    el.classList.toggle("open",o); el.querySelector(".secbody").hidden=!o; b.setAttribute("aria-expanded",o);
+    UI.c[id]=!o; saveUI(); haptic();
+  }));
+  document.querySelectorAll("[data-recap]").forEach(b=>b.addEventListener("click",()=>recapSheet(b.dataset.recap)));
+  const setAll=closed=>{document.querySelectorAll(".sec").forEach(el=>{if(el.dataset.sec!=="settings")UI.c[el.dataset.sec]=closed});saveUI();render()};
+  $("foldAll")?.addEventListener("click",()=>setAll(true));
+  $("openAll")?.addEventListener("click",()=>setAll(false));
   $("saveSettings")?.addEventListener("click",()=>{
     for(const k of ["pay","save","bil","bilStart","gas","savingsStart"]){const v=parseFloat($("s_"+k).value);if(!isNaN(v)&&v>=0)S.settings[k]=v}
     persist();render();toast("Settings saved");
@@ -522,6 +547,55 @@ function lumpSheet(){
         const left=Math.max(0,S.settings.bilStart-bilPaidTotal());
         setTimeout(()=>toast(left===0?"BIL cleared. Boss defeated.":money(left)+" left to BIL","purple"),amt>rem?2100:0);
       });
+    });
+}
+function closeRoll(wk,keep){
+  haptic();
+  withLevelCheck(()=>{const amt=r2(calc(wk).endLeft);keep=Math.max(0,Math.min(amt,keep||0));S.closed[wk]={toNext:r2(keep),toSave:r2(amt-keep)};persist();closeSheet();render();toast(keep>=amt?"Kept for this week":keep>0?"Split: kept "+money(keep):"All to savings")});
+}
+function recapSheet(wk){
+  const c=calc(wk), w=W(wk), st=S.settings, end=addDays(wk,6), cl=S.closed[wk];
+  const endLeft=r2(c.endLeft);
+  const cats={}; c.sp.forEach(x=>cats[x.cat]=(cats[x.cat]||0)+x.amt);
+  const catList=Object.entries(cats).sort((a,b)=>b[1]-a[1]); const top=catList.length?catList[0][1]:1;
+  const msTotal=(c.bilDue?1:0)+2, msDone=(c.bilDue&&w.checks?.bil?1:0)+(w.checks?.save?1:0)+(w.checks?.cashapp?1:0);
+  const saved=(w.checks?.save?(w.savePaid||0):0)+c.exSave;
+  const bilWeek=(w.checks?.bil?(w.bilPaid||0):0)+lumps().filter(l=>l.date>=wk&&l.date<=end).reduce((a,l)=>a+l.amt,0);
+  const color=endLeft<0?"var(--red)":"var(--lime)";
+  let fate;
+  if(cl){
+    if(endLeft<0) fate=`You went over by <b>${money(-endLeft)}</b>, so it came out of the next week's spending money.`;
+    else if(endLeft===0) fate=`You spent exactly what you had. Nothing to carry over.`;
+    else fate=`${cl.toSave?`<b>${money(cl.toSave)}</b> went to savings.`:""} ${cl.toNext?`<b>${money(cl.toNext)}</b> was added to the next week's spending money.`:""}`;
+  }
+  const decide=!cl&&endLeft>0;
+  openSheet(`<div class="row"><h2 style="color:var(--purple)">${px("star",14)} Week recap</h2><button class="btn sm" data-close type="button">Close</button></div>
+    <div class="label" style="text-align:center">${nice(wk)} to ${nice(end)}</div>
+    <div class="recap-big num" style="color:${color};text-shadow:0 0 16px ${color}">${endLeft<0?"-":""}${money(Math.abs(endLeft))}</div>
+    <div class="small muted" style="text-align:center;margin-top:-6px">${endLeft<0?"over budget":"left over, unspent"}</div>
+    <div class="recap-sec">
+      <div class="kv"><span>Spending money</span><b>${money(c.budget)}</b></div>
+      <div class="kv"><span>Spent (not counting gas)</span><b>${money(c.otherSpent)}</b></div>
+      <div class="kv"><span>Gas: ${money(c.gasSpent)} of ${money(st.gas)}</span><b style="color:${c.gasOver?"var(--red)":"var(--orange)"}">${c.gasOver?"-"+money(c.gasOver):"+"+money(c.gasUnder)}</b></div>
+      ${c.lumpSpend?`<div class="kv"><span>Extra to BIL from spending</span><b>-${money(c.lumpSpend)}</b></div>`:""}
+    </div>
+    ${catList.length?`<div class="recap-sec"><div class="label">Where it went</div>${catList.map(([k,v])=>`<div class="catrow"><span>${esc(k)}</span><span class="catbar" style="--c:${k==="Gas"?"var(--orange)":"var(--lime)"}"><i style="width:${Math.max(4,v/top*100)}%"></i></span><b class="digits" style="font-size:19px">${money(v)}</b></div>`).join("")}</div>`:`<div class="recap-sec small muted">No charges logged this week.</div>`}
+    <div class="recap-sec">
+      <div class="kv"><span>Payday missions</span><b style="color:${msDone===msTotal?"var(--lime)":"var(--orange)"}">${msDone}/${msTotal}</b></div>
+      <div class="kv"><span>Added to savings</span><b style="color:var(--purple)">${money(saved)}</b></div>
+      <div class="kv"><span>Paid to BIL</span><b>${money(bilWeek)}</b></div>
+      <div class="kv"><span>Savings now &middot; BIL left</span><b>${money(savingsTotal())} &middot; ${money(Math.max(0,st.bilStart-bilPaidTotal()))}</b></div>
+    </div>
+    <div class="recap-sec">
+      <div class="label">What happens to the money</div>
+      ${decide?`<div>You have <b style="color:var(--lime)">${money(endLeft)}</b> left. Keep some for this week; the rest goes to savings.</div>
+        <label class="f" for="r_keep">Keep for this week<input id="r_keep" type="number" inputmode="decimal" min="0" max="${endLeft}" value="0"></label>
+        <div class="btns"><button class="btn primary" id="r_go" type="button">Confirm</button><button class="btn" id="r_save" type="button">All to savings</button><button class="btn" id="r_keepall" type="button">Keep it all</button></div>`
+      :cl?`<div class="small">${fate}</div>`:`<div class="small muted">This week isn't over yet.</div>`}
+    </div>`,()=>{
+      $("r_go")?.addEventListener("click",()=>closeRoll(wk,parseFloat($("r_keep").value)));
+      $("r_save")?.addEventListener("click",()=>closeRoll(wk,0));
+      $("r_keepall")?.addEventListener("click",()=>closeRoll(wk,Infinity));
     });
 }
 function paySheet(){
